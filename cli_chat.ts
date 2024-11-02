@@ -1,7 +1,8 @@
-import { WechatyBuilder, type Sayable } from "wechaty";
+import { WechatyBuilder, ScanStatus, type Sayable } from "wechaty";
 import type { WechatyInterface, ContactInterface, RoomInterface, MessageInterface } from "wechaty/impls";
 import * as readline from "readline";
 import { type PathLike, mkdirSync, accessSync } from "node:fs";
+import QRCode from "qrcode";
 
 enum AnsiColor {
   RESET = '\x1b[0m',
@@ -424,9 +425,16 @@ async function main(): Promise<void> {
           new CLI(bot, botId);
         }
       })
-      .on("scan", (qrcode: string, status: any) =>
-        console.log(`[${botId}] Scan QR Code to login: status=${status} || https://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`)
-      )
+      .on("scan", async (qrcode: string, status: any) => {
+        if (status === ScanStatus.Timeout || status === ScanStatus.Waiting) {
+          const qrcodeUrl = `https://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`;
+          console.log(`on(scan) ${ScanStatus[status]}, ${status}, ${qrcodeUrl}`);
+          const consoleQRCode = await QRCode.toString(qrcode, { type: "terminal", small: true });
+          console.log(`Scan QRCode to log in:\n${consoleQRCode}`);
+        } else {
+          console.log(`on(scan) ${ScanStatus[status]}, ${status}`);
+        }
+      })
       .on("message", async (message: MessageInterface) => {
         console.log(`[${botId}] on(message): ${i === yourBotNum ? message.toString() : "Received a message"}`);
         if (/^妈妈$/i.test(message.text())) {
