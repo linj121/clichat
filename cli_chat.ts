@@ -118,13 +118,29 @@ class CLI {
 
     if (!targetType || targetType === 'contact') {
       this.log(`Searching contacts using ${regex.source} ...`);
-      // ONLY 1 key is allowed. Wechat is already fuzz searching both name and alias filed under the hood
-      const matchedContacts = await this.bot.Contact.findAll({
-        name: regex,
-      });
 
+      // Search both keys and combine them (use Set() to remove duplicates)
+      const foundContacts = await Promise.all([
+        this.bot.Contact.findAll({ name: regex }),
+        this.bot.Contact.findAll({ alias: regex })
+      ]);
+
+      // Early return. Do not proceed if result is empty.
+      if (foundContacts.every(resultArr => resultArr.length === 0)) {
+        this.log("No matching contacts found :(");
+        return;
+      }
+
+      const mergedContacts = Array.from(
+        new Set([
+          ...foundContacts[0],
+          ...foundContacts[1]
+        ])
+      );
+
+      // Transfrom data: extract fields we'd like to see
       const contactsData = await Promise.all(
-        matchedContacts.map(async (contact) => ({
+        mergedContacts.map(async (contact) => ({
           id: truncateFixed(contact.id),
           alias: truncateFixed((await contact.alias()) || ''),
           name: truncateFixed(contact.name()),
