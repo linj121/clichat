@@ -97,16 +97,82 @@ class CLI {
     this.rl.prompt(true);
   }
 
+  private async search(pattern: string, targetType: TargetType | null): Promise<void> {
+    let regex: RegExp;
+
+    // Check if pattern is enclosed with slashes indicating regex
+    if (pattern.startsWith('/') && pattern.endsWith('/')) {
+      try {
+        regex = new RegExp(pattern.slice(1, -1), 'i');
+      } catch (error) {
+        this.log('Invalid regular expression.');
+        return;
+      }
+    } else {
+      // Use fuzzy search pattern
+      const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      regex = new RegExp(escapedPattern, 'i');
+    }
+
+    const truncateFixed = (str: string) => truncate(str, this.maxTableColumnCharNum);
+
+    if (!targetType || targetType === 'contact') {
+      this.log(`Searching contacts using ${regex.source} ...`);
+      // ONLY 1 key is allowed. Wechat is already fuzz searching both name and alias filed under the hood
+      const matchedContacts = await this.bot.Contact.findAll({
+        name: regex,
+      });
+
+      const contactsData = await Promise.all(
+        matchedContacts.map(async (contact) => ({
+          id: truncateFixed(contact.id),
+          alias: truncateFixed((await contact.alias()) || ''),
+          name: truncateFixed(contact.name()),
+        }))
+      );
+
+      if (contactsData.length > 0) {
+        this.log("- Matched Contacts:");
+        this.table(contactsData);
+      } else {
+        this.log("No matching contacts found :(");
+      }
+    }
+
+    if (!targetType || targetType === 'room') {
+      this.log(`Searching rooms using ${regex.source} ...`);
+      const matchedRooms = await this.bot.Room.findAll({
+        topic: regex,
+      });
+
+      const roomsData = await Promise.all(
+        matchedRooms.map(async (room) => ({
+          id: truncateFixed(room.id),
+          topic: truncateFixed((await room.topic()) || ''),
+        }))
+      );
+
+      if (roomsData.length > 0) {
+        this.log("- Matched Rooms:");
+        this.table(roomsData);
+      } else {
+        this.log("No matching rooms found :(");
+      }
+    }
+  }
+
+
   private async processCommand(line: string): Promise<void> {
     const args = commandLineParser(line.trim());
     if (args.length === 0) return;
 
-    const availableCommands: string[] = ["send", "ls"];
+    const availableCommands: string[] = ["send", "ls", "search"];
 
     const usages: Record<string, string> = {
       "help": "Usage: help <command>\n" + "Available commands:\n" + availableCommands.join("\n"),
       "send": "Usage: send <target> -t <room|contact> -m <message>",
       "ls": "Usage: ls [--contact | -c | --room | -r]",
+      "search": "Usage: search <pattern> [-t | --targetType <room|contact>]",
     };
 
     const command = args[0].value;
@@ -213,6 +279,34 @@ class CLI {
         this.log(usages["ls"]);
       }
 
+    } else if (command === "search") {
+      let pattern: string | null = null;
+      let targetType: TargetType | null = null;
+
+      for (let i = 1; i < args.length; i++) {
+        const arg = args[i] || {};
+        if (arg.flag === 't' || arg.flag === 'targetType') {
+          targetType = (arg.value as TargetType) || null;
+        } else if (!arg.flag && !pattern) {
+          pattern = arg.value || '';
+        } else {
+          this.log('Unknown option or too many patterns:', arg.value);
+          this.log(usages["search"]);
+          return;
+        }
+      }
+
+      if (!pattern) {
+        this.log('Please provide a search pattern.');
+        this.log(usages["search"]);
+        return;
+      }
+
+      try {
+        await this.search(pattern, targetType);
+      } catch (err) {
+        this.log('Error during search:', err);
+      }
     } else {
       this.log('Unknown command:', command);
     }
