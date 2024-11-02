@@ -45,9 +45,18 @@ function commandLineParser(command: string): Arg[] {
   return argV;
 }
 
+function truncate(str: string, maxLength: number): string {
+  if (str.length > maxLength) {
+    return str.substring(0, maxLength - 3) + '...';
+  } else {
+    return str;
+  }
+}
+
 class CLI {
   private rl: readline.Interface;
   private originalConsoleLog: typeof console.log;
+  private maxTableColumnCharNum: number = 35;
 
   constructor(
     private bot: WechatyInterface,
@@ -81,9 +90,24 @@ class CLI {
     this.rl.prompt(true);
   }
 
+  private table(...args: any[]): void {
+    readline.cursorTo(process.stdout, 0);
+    readline.clearLine(process.stdout, 0);
+    console.table(...args);
+    this.rl.prompt(true);
+  }
+
   private async processCommand(line: string): Promise<void> {
     const args = commandLineParser(line.trim());
     if (args.length === 0) return;
+
+    const availableCommands: string[] = ["send", "ls"];
+
+    const usages: Record<string, string> = {
+      "help": "Usage: help <command>\n" + "Available commands:\n" + availableCommands.join("\n"),
+      "send": "Usage: send <target> -t <room|contact> -m <message>",
+      "ls": "Usage: ls [--contact | -c | --room | -r]",
+    };
 
     const command = args[0].value;
     if (command === 'send') {
@@ -101,11 +125,12 @@ class CLI {
           target = arg.value || '';
         } else {
           this.log('Unknown option or too many targets:', arg.value);
+          this.log(usages["send"]);
         }
       }
 
       if (!target || !message) {
-        this.log('Usage: send <target> -t <room|contact> -m <message>');
+        this.log(usages["send"]);
       } else {
         try {
           await sendMessage(this.bot, targetType, target, message);
@@ -113,6 +138,81 @@ class CLI {
           this.log('Error sending message:', err);
         }
       }
+    } else if (command === 'help') {
+
+      const { flag, value } = { ...args[1] }; // In case args[1] is undefined, return { }
+      if (flag) {
+        this.log(`Unexpected flag ${flag}`);
+        this.log(usages["help"]);
+        return;
+      }
+      if (!value) {
+        this.log(usages["help"]);
+        return;
+      }
+      if (!availableCommands.includes(value)) {
+        this.log(`Unknown command ${value}\n`);
+        this.log(usages["help"]);
+        return;
+      }
+
+      this.log(usages[value]);
+
+    } else if (command === "ls") {
+
+      const { flag, value } = { ...args[1] };
+
+      if (value) {
+        this.log(`Unexpected argument ${value}. You should specify a flag instead of an argument.`);
+        this.log(usages["ls"]);
+        return;
+      }
+
+      const truncateFixed = (str: string) => truncate(str, this.maxTableColumnCharNum);
+
+      const getAllRooms = async () => {
+        this.log("Getting the list of all rooms...");
+        const allRooms = await this.bot.Room.findAll();
+        const allRoomsWithTopics = await Promise.all(allRooms.map(async (room) => {
+          return {
+            id: truncateFixed(room.id),
+            topic: truncateFixed((await room.topic()) || ""),
+          };
+        }));
+
+        this.log("- List of Group Chats (Rooms):");
+        this.table(allRoomsWithTopics);
+      }
+
+      const getAllContacts = async () => {
+        this.log("Getting the list of all contacts...");
+        const allContacts = await this.bot.Contact.findAll();
+        const allContactsWithAlias = await Promise.all(allContacts.map(async (contact) => {
+          return {
+            id: truncateFixed(contact.id),
+            alias: truncateFixed((await contact.alias()) || ""),
+            name: truncateFixed(contact.name()),
+          };
+        }))
+        this.log("- List of Contacts:");
+        this.table(allContactsWithAlias);
+      };
+
+      // Default behaviour: no flag
+      if (!flag) {
+        await Promise.all([getAllRooms(), getAllContacts()]);
+        return;
+      }
+
+      if (flag === "contact" || flag === "c") {
+        await getAllContacts();
+      } else if (flag === "room" || flag === "r") {
+        await getAllRooms();
+      } else {
+        this.log(`Invalid flag ${flag}`);
+        this.log(usages["ls"]);
+      }
+
     } else {
       this.log('Unknown command:', command);
     }
@@ -120,7 +220,11 @@ class CLI {
 
   private setupListeners(): void {
     this.rl.on('line', async (line: string) => {
-      await this.processCommand(line);
+      try {
+        await this.processCommand(line);
+      } catch (error) {
+        this.log(error);
+      }
       this.rl.prompt();
     }).on('close', () => {
       this.resetConsoleLog();
@@ -183,7 +287,7 @@ function createCacheDirIfNotExists(path: PathLike): void {
 }
 
 async function main(): Promise<void> {
-  const NUMBER_OF_BOTS: number = 10;
+  const NUMBER_OF_BOTS: number = 1;
   const CACHE_DIR = "./data";
   const yourBotNum: number = 0;
   const bots: WechatyInterface[] = [];

@@ -12,3 +12,9 @@ npm start
 ```
 
 Type `help` to view available commands
+
+## Examples
+
+```console
+TODO
+```
