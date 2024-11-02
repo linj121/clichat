@@ -1,0 +1,15 @@
+{
+  "scripts": {
+    "start": "npm run build && npm run serve",
+    "serve": "node ./build/cli_chat.js",
+    "build": "tsc --build --verbose --pretty"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "wechaty": "^1.20.2",
+    "wechaty-puppet-wechat": "^1.18.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
