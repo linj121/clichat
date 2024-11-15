@@ -385,7 +385,7 @@ async function sendMessage(bot: WechatyInterface, targetType: TargetType, target
   }
 
   await targetInstance.say(message);
-  console.log(`Message sent to ${targetType} "${target}": ${message}`);
+  // console.log(`Message sent to ${targetType} "${target}": ${message}`);
 }
 
 function createCacheDirIfNotExists(path: PathLike): void {
@@ -422,7 +422,7 @@ async function main(): Promise<void> {
         console.log(`[${botId}] User ${user.name()} logged in`);
         if (i === yourBotNum) {
           console.log("Starting CLI...");
-          new CLI(bot, botId);
+          new CLI(bot, `[${botId}] ${user.name()} `);
         }
       })
       .on("scan", async (qrcode: string, status: any) => {
@@ -436,7 +436,7 @@ async function main(): Promise<void> {
         }
       })
       .on("message", async (message: MessageInterface) => {
-        console.log(`[${botId}] on(message): ${i === yourBotNum ? message.toString() : "Received a message"}`);
+        console.log(`[${botId}] : ${i === yourBotNum ? message.toString() : "Received a message"}`);
         if (/^妈妈$/i.test(message.text())) {
           await respond(message, `生的 (from ${botId})`);
         }
