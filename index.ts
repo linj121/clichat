@@ -186,7 +186,7 @@ class CLI {
     const availableCommands: string[] = ["send", "ls", "search"];
 
     const usages: Record<string, string> = {
-      "help": "Usage: help <command>\n" + "Available commands:\n" + availableCommands.join("\n"),
+      "help": "Usage: help <command>\n" + "Available commands: " + availableCommands.join(", "),
       "send": "Usage: send <target> -t <room|contact> -m <message>",
       "ls": "Usage: ls [--contact | -c | --room | -r]",
       "search": "Usage: search <pattern> [-t | --targetType <room|contact>]",
