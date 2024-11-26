@@ -398,7 +398,7 @@ function createCacheDirIfNotExists(path: PathLike): void {
 }
 
 async function main(): Promise<void> {
-  const NUMBER_OF_BOTS: number = 1;
+  const NUMBER_OF_BOTS: number = 2;
   const CACHE_DIR = "./data";
   const yourBotNum: number = 0;
   const bots: WechatyInterface[] = [];
@@ -428,11 +428,11 @@ async function main(): Promise<void> {
       .on("scan", async (qrcode: string, status: any) => {
         if (status === ScanStatus.Timeout || status === ScanStatus.Waiting) {
           const qrcodeUrl = `https://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`;
-          console.log(`on(scan) ${ScanStatus[status]}, ${status}, ${qrcodeUrl}`);
+          console.log(`[${botId}] on(scan) ${ScanStatus[status]}, ${status}, ${qrcodeUrl}`);
           const consoleQRCode = await QRCode.toString(qrcode, { type: "terminal", small: true });
-          console.log(`Scan QRCode to log in:\n${consoleQRCode}`);
+          console.log(`[${botId}] Scan QRCode to log in:\n${consoleQRCode}`);
         } else {
-          console.log(`on(scan) ${ScanStatus[status]}, ${status}`);
+          console.log(`[${botId}] on(scan) ${ScanStatus[status]}, ${status}`);
         }
       })
       .on("message", async (message: MessageInterface) => {
